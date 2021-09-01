@@ -534,9 +534,9 @@ impl Iterator for Counter {
         }
     }
 }
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 enum List {
-    Cons(i32, Rc<List>),
+    Cons(Rc<RefCell<i32>>, Rc<List>),
     Nil,
 }
 
@@ -548,7 +548,9 @@ impl<T> MyBox<T> {
     }
 }
 
+use std::cell::RefCell;
 use std::ops::Deref;
+use std::sync::{Mutex, MutexGuard};
 
 impl<T> Deref for MyBox<T> {
     type Target = T;
@@ -567,9 +569,53 @@ impl Drop for CustomSmartPointer {
     }
 }
 
+pub trait Messenger {
+    fn send(&self, msg: &str);
+}
+pub struct LimitTracker<'a, T: 'a + Messenger> {
+    messenger: &'a T,
+    value: usize,
+    max: usize,
+}
+impl<'a, T> LimitTracker<'a, T>
+where
+    T: Messenger,
+{
+    pub fn new(messenger: &T, max: usize) -> LimitTracker<T> {
+        LimitTracker {
+            messenger,
+            value: 0,
+            max,
+        }
+    }
+    pub fn set_value(&mut self, value: usize) {
+        self.value = value;
+
+        let percentage_of_max = self.value as f64 / self.max as f64;
+
+        if percentage_of_max >= 0.75 && percentage_of_max <= 0.9 {
+            self.messenger
+                .send("Warning: You've used up over 75% of your quota!");
+        } else if percentage_of_max >= 0.9 && percentage_of_max <= 1.0 {
+            self.messenger
+                .send("Urgent warning: You've used up over 90% of your quota!");
+        } else if percentage_of_max >= 1.0 {
+            self.messenger.send("Error: You are over your quota!");
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Node {
+    value: i32,
+    parent: RefCell<Weak<Node>>,
+    children: RefCell<Vec<Rc<Node>>>,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::cell::{Ref, RefCell};
 
     #[test]
     fn call_with_differrent_values() {
@@ -647,16 +693,83 @@ mod test {
         let b = Box::new(5);
         println!("{}", b);
         use List::{Cons, Nil};
-        let a = Rc::new(Cons(5, Rc::new(Cons(10, Rc::new(Nil)))));
+        let a = Rc::new(Cons(
+            Rc::new(RefCell::new(3)),
+            Rc::new(Cons(Rc::new(RefCell::new(10)), Rc::new(Nil))),
+        ));
         println!("Count after creating a = {}", Rc::strong_count(&a));
         {
-            let b = Cons(3, Rc::clone(&a));
+            let b = Cons(Rc::new(RefCell::new(3)), Rc::clone(&a));
             println!("Count after creating b = {}", Rc::strong_count(&a));
-            let c = Cons(3, Rc::clone(&a));
+            let c = Cons(Rc::new(RefCell::new(3)), Rc::clone(&a));
             println!("Count after creating c = {}", Rc::strong_count(&a));
         }
         println!("Count after scope = {}", Rc::strong_count(&a));
+    }
 
+    struct MockMessenger {
+        sent_messages: RefCell<Vec<String>>,
+    }
+
+    impl MockMessenger {
+        fn new() -> MockMessenger {
+            MockMessenger {
+                sent_messages: RefCell::new(vec![]),
+            }
+        }
+    }
+
+    impl Messenger for MockMessenger {
+        fn send(&self, msg: &str) {
+            self.sent_messages.borrow_mut().push(String::from(msg));
+        }
+    }
+
+    #[test]
+    fn sends_an_over_75_perc() {
+        let mock_messenger = MockMessenger::new();
+        let mut limit_tracker = LimitTracker::new(&mock_messenger, 100);
+        limit_tracker.set_value(80);
+
+        assert_eq!(mock_messenger.sent_messages.borrow_mut().len(), 1);
+    }
+
+    #[test]
+    fn test_tree() {
+        let leaf = Rc::new(Node {
+            value: 3,
+            parent: RefCell::new(Weak::new()),
+            children: RefCell::new(vec![]),
+        });
+        println!(
+            "leaf strong = {}, weak = {}",
+            Rc::strong_count(&leaf),
+            Rc::weak_count(&leaf)
+        );
+        {
+            let branch = Rc::new(Node {
+                value: 5,
+                parent: RefCell::new(Weak::new()),
+                children: RefCell::new(vec![Rc::clone(&leaf)]),
+            });
+            *leaf.parent.borrow_mut() = Rc::downgrade(&branch);
+            println!(
+                "branch strong = {}, weak = {}",
+                Rc::strong_count(&branch),
+                Rc::weak_count(&branch)
+            );
+            println!(
+                "leaf strong = {}, weak = {}",
+                Rc::strong_count(&leaf),
+                Rc::weak_count(&leaf)
+            );
+        }
+        println!("leaf parent = {:?}", leaf.parent.borrow().upgrade());
+        println!(
+            "leaf strong = {}, weak = {}",
+            Rc::strong_count(&leaf),
+            Rc::weak_count(&leaf)
+        );
     }
 }
 
