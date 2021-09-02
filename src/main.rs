@@ -612,6 +612,79 @@ struct Node {
     children: RefCell<Vec<Rc<Node>>>,
 }
 
+fn threads_test() {
+    let v = vec![1, 2, 3];
+    let join_handle = thread::spawn(move || {
+        for i in 1..10 {
+            println!("Hi number {} from the spawned thread!", i);
+            thread::sleep(Duration::from_millis(1));
+            println!("Here's the vec: {:?}", v);
+        }
+    });
+
+    for i in 1..5 {
+        println!("Hi number {} from the main thread!", i);
+        thread::sleep(Duration::from_millis(1));
+    }
+    let result = join_handle.join().unwrap();
+    println!("Thread result {:?}", result);
+}
+
+fn channels_test() {
+    use std::sync::mpsc;
+    let (tx, rx) = mpsc::channel();
+    // let tx1 = mpsc::Sender::clone(&tx);
+    let tx1 = tx.clone();
+    thread::spawn(move || {
+        let vals = vec![
+            String::from("one"),
+            String::from("two"),
+            String::from("three"),
+            String::from("four"),
+        ];
+        for val in vals {
+            tx.send(val).unwrap();
+            thread::sleep(Duration::from_secs(1));
+        }
+    });
+    thread::spawn(move || {
+        let vals = vec![
+            String::from("five"),
+            String::from("six"),
+            String::from("seven"),
+            String::from("eight"),
+        ];
+        for val in vals {
+            tx1.send(val).unwrap();
+            thread::sleep(Duration::from_secs(1));
+        }
+    });
+    for received in rx {
+        println!("Got {}", received);
+    }
+}
+
+fn mutex_test() {
+    use std::sync::Mutex;
+    use std::sync::Arc;
+    let counter = Arc::new(Mutex::new(0));
+    let mut handles = vec![];
+
+    for _ in 0..10 {
+        let counter = counter.clone();//Arc::clone(&counter);
+        let handle = thread::spawn(move || {
+            let mut num = counter.lock().unwrap();
+            *num += 1;
+        });
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+    println!("Result = {:?}", *counter.lock().unwrap());
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -774,6 +847,9 @@ mod test {
 }
 
 fn main() {
+    // mutex_test();
+    // channels_test();
+    // threads_test();
     // boxes();
     // iterators();
 
