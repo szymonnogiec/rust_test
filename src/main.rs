@@ -665,13 +665,13 @@ fn channels_test() {
 }
 
 fn mutex_test() {
-    use std::sync::Mutex;
     use std::sync::Arc;
+    use std::sync::Mutex;
     let counter = Arc::new(Mutex::new(0));
     let mut handles = vec![];
 
     for _ in 0..10 {
-        let counter = counter.clone();//Arc::clone(&counter);
+        let counter = counter.clone(); //Arc::clone(&counter);
         let handle = thread::spawn(move || {
             let mut num = counter.lock().unwrap();
             *num += 1;
@@ -683,6 +683,67 @@ fn mutex_test() {
         handle.join().unwrap();
     }
     println!("Result = {:?}", *counter.lock().unwrap());
+}
+
+pub struct AveragedCollection {
+    list: Vec<i32>,
+    average: f64,
+}
+
+impl AveragedCollection {
+    pub fn add(&mut self, value: i32) {
+        self.list.push(value);
+        self.update_average();
+    }
+    pub fn remove(&mut self) -> Option<i32> {
+        let result = self.list.pop();
+        match result {
+            Some(value) => {
+                self.update_average();
+                Some(value)
+            }
+            None => None,
+        }
+    }
+    pub fn average(&self) -> f64 {
+        self.average
+    }
+    fn update_average(&mut self) {
+        let total: i32 = self.list.iter().sum();
+        self.average = total as f64 / self.list.len() as f64;
+    }
+}
+
+fn screen_test() {
+    use rust_test::{Button, Draw, Screen};
+
+    struct SelectBox {
+        width: u32,
+        height: u32,
+        options: Vec<String>,
+    }
+
+    impl Draw for SelectBox {
+        fn draw(&self) {
+            println!("Drawing SelectBox");
+        }
+    }
+
+    let screen = Screen {
+        components: vec![
+            Box::new(SelectBox {
+                width: 75,
+                height: 10,
+                options: vec![String::from("Yes"), String::from("No")],
+            }),
+            Box::new(Button {
+                width: 50,
+                height: 10,
+                label: String::from("OK"),
+            }),
+        ],
+    };
+    screen.run();
 }
 
 #[cfg(test)]
@@ -844,9 +905,43 @@ mod test {
             Rc::weak_count(&leaf)
         );
     }
+
+    #[test]
+    fn post_state_classic_test() {
+        use rust_test::post_state_classic::Post;
+
+        let mut post = Post::new();
+
+        post.add_text("blablator");
+        assert_eq!("", post.content());
+
+        post.request_review();
+        assert_eq!("", post.content());
+
+        post.approve();
+        assert_eq!("blablator", post.content());
+    }
+
+    #[test]
+    fn post_state_types_test() {
+        use rust_test::post_state_types::Post;
+
+        let mut post = Post::new();
+
+        post.add_text("blablator");
+        // won't compile
+        // assert_eq!("", post.content());
+        let post = post.request_review();
+        // won't compile
+        // assert_eq!("", post.content());
+        let post = post.approve();
+
+        assert_eq!("blablator", post.content());
+    }
 }
 
 fn main() {
+    screen_test();
     // mutex_test();
     // channels_test();
     // threads_test();
