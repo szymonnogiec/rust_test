@@ -746,13 +746,228 @@ fn screen_test() {
     screen.run();
 }
 
+fn if_let_test() {
+    let favourite_color: Option<&str> = None;
+    let is_tuesday = false;
+    let age: Result<u8, _> = "34".parse();
+
+    if let Some(color) = favourite_color {
+        println!("Using your favorite color, {}, as the background", color);
+    } else if is_tuesday {
+        println!("Tuesday is green day");
+    } else if let Ok(age) = age {
+        if age > 30 {
+            println!("Using purple as the background color");
+        } else {
+            println!("Using orange as the background color");
+        }
+    } else {
+        println!("Using blue as the background color");
+    }
+}
+
+fn while_let_test() {
+    let mut stack = Vec::new();
+    stack.push(1);
+    stack.push(2);
+    stack.push(3);
+
+    while let Some(top) = stack.pop() {
+        println!("{}", top);
+    }
+}
+
+fn for_destructure_test() {
+    let v = vec!['a', 'b', 'c'];
+    for (index, value) in v.iter().enumerate() {
+        println!("{} is at index {}", value, index);
+    }
+    let (a, b, _) = (1, 2, 3);
+    let (a, b, ..) = (1, 2, 3, 4, 5, 6, 7, 8, 9);
+}
+
+fn fun_params_match() {
+    fn print_coordinates(&(x, y): &(i32, i32)) {
+        println!("Current loc: ({},{})", x, y);
+    }
+    let point = (3, 2);
+    print_coordinates(&point);
+}
+
+fn match_examples() {
+    // literals
+    let x = 1;
+    match x {
+        1 => println!("one"),
+        2 => println!("two"),
+        3 => println!("three"),
+        _ => println!("anything"),
+    }
+
+    // named vars
+    let x = Some(5);
+    let y = 10;
+    match x {
+        Some(50) => println!("Got 50"),
+        Some(y) => println!("Matched y = {:?}", y),
+        _ => println!("Default case, x = {:?}, y = {:?}", x, y),
+    }
+
+    // multiple patterns
+    let x = 1;
+    match x {
+        1 | 2 => println!("one or two"),
+        3 => println!("three"),
+        _ => println!("anything"),
+    }
+
+    // ranges
+    let x = 5;
+    match x {
+        1...5 => println!("in 1-5 range"),
+        _ => println!("anything else"),
+    }
+    let x = 'c';
+    match x {
+        'a'...'j' => println!("early ASCII letter"),
+        'k'...'z' => println!("late ASCII letter"),
+        _ => println!("something else"),
+    }
+
+    // destructure structs
+    struct Point {
+        x: i32,
+        y: i32,
+    }
+    let p = Point { x: 0, y: 7 };
+    let Point { x: a, y: b } = p;
+    assert_eq!(0, a);
+    assert_eq!(7, b);
+    let Point { x, y } = p;
+    assert_eq!(0, x);
+    assert_eq!(7, y);
+    match p {
+        Point { x, y: 0 } => println!("On the x axis at {}", x),
+        Point { x: 0, y } => println!("On the y axis at {}", y),
+        Point { x, y } => println!("On neither axis: ({}, {})", x, y),
+    }
+
+    // destructure enums
+    enum Message {
+        Quit,                       // no param
+        Move { x: i32, y: i32 },    // struct-like
+        Write(String),              // single-element tuple
+        ChangeColor(i32, i32, i32), // tuple
+    }
+    let msg = Message::ChangeColor(0, 160, 255);
+    match msg {
+        Message::Quit => {
+            println!("The Quit has no data");
+        }
+        Message::Move { x, y } => {
+            println!("Move {} in x direction and {} in y direction", x, y)
+        }
+        Message::Write(text) => println!("Message: {}", text),
+        Message::ChangeColor(r, g, b) => {
+            println!("Change the color to R:{} G:{} B:{}", r, g, b);
+        }
+    }
+
+    // destructure references
+    let points = vec![
+        Point { x: 0, y: 0 },
+        Point { x: 1, y: 5 },
+        Point { x: 10, y: -3 },
+    ];
+    let sum_of_squares: i32 = points.iter().map(|&Point { x, y }| x * x + y * y).sum();
+    println!("Sum of squares = {}", sum_of_squares);
+
+    // mixed
+    let ((feet, inches), Point { x, y }) = ((3, 10), Point { x: 3, y: -10 });
+
+    // skipping values
+    let mut setting_value = Some(5);
+    let new_setting_value = Some(10);
+    match (setting_value, new_setting_value) {
+        (Some(_), Some(_)) => {
+            println!("Cannot overwrite an existing customized value");
+        }
+        _ => {
+            setting_value = new_setting_value;
+        }
+    }
+
+    // skipping values with ..
+    let pt = Point { x: 0, y: 12 };
+    match pt {
+        Point { x, .. } => println!("x is {}", x),
+    }
+
+    // creating refs and mut refs
+    let mut robot_name = Some(String::from("Boria"));
+    match robot_name {
+        Some(ref name) => println!("Found a name: {}", name),
+        None => (),
+    }
+    println!("robot_name is {:?}", robot_name);
+    match robot_name {
+        Some(ref mut name) => *name = String::from("Boria MK2"),
+        None => (),
+    }
+    println!("robot_name is {:?}", robot_name);
+
+    // match guards
+    let num = Some(5);
+    match num {
+        Some(x) if x < 6 => println!("less than six: {}", x),
+        Some(x) => println!("{}", x),
+        None => (),
+    }
+
+    let x = Some(5);
+    let y = 5;
+    match x {
+        Some(50) => println!("Got 50"),
+        Some(n) if n == y => println!("Matched, n = {:?}", n),
+        _ => println!("Default case, x = {:?}", x),
+    }
+    println!("at the end: x = {:?}, y = {:?}", x, y);
+
+    let x = 4;
+    let y = false;
+    match x {
+        4 | 5 | 6 if y => println!("Yes"),
+        _ => println!("no"),
+    }
+
+    // binding
+    enum Msg {
+        Hello { id: i32 },
+    }
+
+    let msg = Msg::Hello { id: 5 };
+    match msg {
+        Msg::Hello {
+            id: id_variable @ 3...7,
+        } => {
+            println!("Found an id in range: {}", id_variable);
+        }
+        Msg::Hello { id: 10...12 } => {
+            println!("Found an id in another range");
+        }
+        Msg::Hello { id } => {
+            println!("Found some other id: {}", id);
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use std::cell::{Ref, RefCell};
 
     #[test]
-    fn call_with_differrent_values() {
+    fn call_with_different_values() {
         let mut c = Cacher::new(|a| a);
 
         let v1 = c.value(1);
@@ -941,7 +1156,12 @@ mod test {
 }
 
 fn main() {
-    screen_test();
+    match_examples();
+    // fun_params_match();
+    // for_destructure_test();
+    // while_let_test();
+    // if_let_test();
+    // screen_test();
     // mutex_test();
     // channels_test();
     // threads_test();
