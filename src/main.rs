@@ -1022,11 +1022,38 @@ fn unsafe_examples() {
     // implementing an unsafe trait
     unsafe trait Foo {}
     unsafe impl Foo for i32 {}
-    
 }
 
 extern "C" {
     fn abs(input: i32) -> i32;
+}
+
+fn advanced_lifetimes() {
+    struct Context<'s>(&'s str);
+    struct Parser<'c, 's: 'c> {
+        context: &'c Context<'s>,
+    }
+    impl<'c, 's> Parser<'c, 's> {
+        fn parse(&self) -> Result<(), &'s str> {
+            Err(&self.context.0[1..])
+        }
+    }
+
+    fn parse_context(context: Context) -> Result<(), &str> {
+        Parser { context: &context }.parse()
+    }
+}
+
+fn traits_lifetimes() {
+    trait Red {};
+
+    struct Ball<'a> {
+        diameter: &'a i32,
+    }
+    impl<'a> Red for Ball<'a> {}
+
+    let num = 5;
+    let obj = Box::new(Ball{diameter: &num}) as Box<dyn Red>;
 }
 
 #[cfg(test)]
@@ -1231,7 +1258,9 @@ mod test {
 }
 
 fn main() {
-    unsafe_examples();
+    traits_lifetimes();
+    // advanced_lifetimes();
+    // unsafe_examples();
     // match_examples();
     // fun_params_match();
     // for_destructure_test();
