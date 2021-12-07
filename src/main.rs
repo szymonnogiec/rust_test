@@ -549,6 +549,7 @@ impl<T> MyBox<T> {
 }
 
 use std::cell::RefCell;
+use std::fmt::{write, Display, Formatter};
 use std::ops::Deref;
 use std::sync::{Mutex, MutexGuard};
 
@@ -1053,7 +1054,139 @@ fn traits_lifetimes() {
     impl<'a> Red for Ball<'a> {}
 
     let num = 5;
-    let obj = Box::new(Ball{diameter: &num}) as Box<dyn Red>;
+    let obj = Box::new(Ball { diameter: &num }) as Box<dyn Red>;
+}
+
+fn overloading_operators() {
+    use std::ops::Add;
+
+    #[derive(Debug, PartialEq)]
+    struct Point {
+        x: i32,
+        y: i32,
+    }
+
+    impl Add for Point {
+        type Output = Point;
+
+        fn add(self, other: Point) -> Point {
+            Point {
+                x: self.x + other.x,
+                y: self.y + other.y,
+            }
+        }
+    }
+
+    assert_eq!(
+        Point { x: 1, y: 0 } + Point { x: 2, y: 3 },
+        Point { x: 3, y: 3 }
+    );
+
+    #[derive(Debug, PartialEq)]
+    struct Meters(u32);
+    #[derive(Debug, PartialEq)]
+    struct Millimeters(u32);
+
+    impl Add<Meters> for Millimeters {
+        type Output = Millimeters;
+
+        fn add(self, rhs: Meters) -> Millimeters {
+            Millimeters(self.0 + (rhs.0 * 1000))
+        }
+    }
+    assert_eq!(Millimeters(10) + Meters(1), Millimeters(1010));
+}
+
+fn fully_qualified_syntax_for_disambiguation() {
+    trait Pilot {
+        fn fly(&self);
+    }
+
+    trait Wizard {
+        fn fly(&self);
+    }
+
+    struct Human;
+
+    impl Pilot for Human {
+        fn fly(&self) {
+            println!("This is your captin speaking.")
+        }
+    }
+
+    impl Wizard for Human {
+        fn fly(&self) {
+            println!("I can fly, motherfucker!");
+        }
+    }
+
+    impl Human {
+        fn fly(&self) {
+            println!("Waving arms furiously.");
+        }
+    }
+
+    let person = Human;
+    Pilot::fly(&person);
+    Wizard::fly(&person);
+    person.fly();
+
+    trait Animal {
+        fn baby_name() -> String;
+    }
+
+    struct Dog;
+    impl Dog {
+        fn baby_name() -> String {
+            String::from("Spot")
+        }
+    }
+
+    impl Animal for Dog {
+        fn baby_name() -> String {
+            String::from("puppy")
+        }
+    }
+    println!("A baby dog is called a {}", <Dog as Animal>::baby_name());
+}
+
+fn using_supertrait_to_require_other_trait_func() {
+    use std::fmt;
+    trait OutlinePrint: fmt::Display {
+        fn outline_print(&self) {
+            let output = self.to_string();
+            let len = output.len();
+            println!("{}", "*".repeat(len + 4));
+            println!("*{}*", " ".repeat(len + 2));
+            println!("* {} *", output);
+            println!("*{}*", " ".repeat(len + 2));
+            println!("{}", "*".repeat(len + 4));
+        }
+    }
+    struct Point {
+        x: i32,
+        y: i32,
+    }
+    impl fmt::Display for Point {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "({}, {})", self.x, self.y)
+        }
+    }
+    impl OutlinePrint for Point {};
+    Point{x:1, y:1234123*123}.outline_print();
+}
+
+fn using_newtype_to_implement_external_traits() {
+    use std::fmt;
+
+    struct Wrapper(Vec<String>);
+    impl fmt::Display for Wrapper {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "[{}]", self.0.join(", "))
+        }
+    }
+    let w = Wrapper(vec![String::from("Hello"), String::from("world")]);
+    println!("w = {}", w);
 }
 
 #[cfg(test)]
@@ -1258,7 +1391,11 @@ mod test {
 }
 
 fn main() {
-    traits_lifetimes();
+    using_newtype_to_implement_external_traits();
+    // using_supertrait_to_require_other_trait_func();
+    // fully_qualified_syntax_for_disambiguation();
+    // overloading_operators();
+    // traits_lifetimes();
     // advanced_lifetimes();
     // unsafe_examples();
     // match_examples();
@@ -1270,11 +1407,14 @@ fn main() {
     // mutex_test();
     // channels_test();
     // threads_test();
-    // boxes();
     // iterators();
-
     // closure_one();
     // ttl_test2();
+    // panic();
+    // hashmap_test();
+    // str_test();
+    // ip_test();
+
     // let number_list = vec![1, 2, 3, 4, 5, 21, 3, 17, 8, 3, 23];
     // let char_list = vec!['a', 'x', 'd'];
     // let result = largest(&number_list);
@@ -1282,11 +1422,6 @@ fn main() {
     // let result = largest(&char_list);
     // println!("Largest char: {}", result);
     // println!("{:?}", read_username_from_file_with_question());
-
-    // panic();
-    // hashmap_test();
-    // str_test();
-    // ip_test();
     // rectangle_test();
     // let u1 = User {
     //     username: String::from("bla"),
