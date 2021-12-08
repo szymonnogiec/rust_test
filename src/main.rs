@@ -1173,7 +1173,11 @@ fn using_supertrait_to_require_other_trait_func() {
         }
     }
     impl OutlinePrint for Point {};
-    Point{x:1, y:1234123*123}.outline_print();
+    Point {
+        x: 1,
+        y: 1234123 * 123,
+    }
+    .outline_print();
 }
 
 fn using_newtype_to_implement_external_traits() {
@@ -1189,6 +1193,61 @@ fn using_newtype_to_implement_external_traits() {
     println!("w = {}", w);
 }
 
+fn types_and_aliases_example() {
+    type Kilometers = i32;
+    let x: i32 = 5;
+    let y: Kilometers = 5;
+
+    assert_eq!(x + y, 10);
+
+    type Thunk = Box<dyn Fn() + Send + 'static>;
+
+    let f: Thunk = Box::new(|| println!("Hi"));
+    fn takes_long_type(f: Thunk) {}
+    fn returns_long_type() -> Thunk {
+        Box::new(|| ())
+    }
+    // never type/never returns
+    fn bar() -> ! {
+        loop {
+            println!("Forever");
+        }
+    }
+    fn foo() -> ! {
+        panic!("I've just panicked.")
+    }
+}
+
+fn dynamically_sized_types() {
+    // won't compile
+    // let s1: str = "Hello there";
+
+    // every generic function has Sized trait bound implicit added
+    fn generic<T>(t: T) {}
+    // is equal to
+    fn generic2<T: Sized>(t: T) {}
+    // can relax this bound:
+    // ?Sized means T may or may not be Sized
+    // Because the type might not be Sized,
+    // we need to use it behind some kind of pointer.
+    // In this case, we’ve chosen a reference.
+    fn generic3<T: ?Sized>(t: &T) {}
+}
+
+fn advances_functions_and_closures() {
+    fn add_one(x: i32) -> i32 {
+        x + 1
+    }
+    fn do_twice(f: fn(i32) -> i32, arg: i32) -> i32 {
+        f(arg) + f(arg)
+    }
+    let answer = do_twice(add_one, 5);
+    println!("Result {}", answer);
+
+    let list_of_numbers = vec![1, 2, 3];
+    let list_of_strings: Vec<String> = list_of_numbers.iter().map(|i| i.to_string()).collect();
+    let list_of_strings2: Vec<String> = list_of_numbers.iter().map(ToString::to_string).collect();
+}
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1391,7 +1450,10 @@ mod test {
 }
 
 fn main() {
-    using_newtype_to_implement_external_traits();
+    advances_functions_and_closures();
+    // dynamically_sized_types();
+    // types_and_aliases_example();
+    // using_newtype_to_implement_external_traits();
     // using_supertrait_to_require_other_trait_func();
     // fully_qualified_syntax_for_disambiguation();
     // overloading_operators();
